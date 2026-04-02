@@ -57,10 +57,3 @@ class WsAlertPayload(BaseModel):
     event_id: int
     event_code: str  
     message: str
-
-# --- 4. VLM AI 모듈 통신 관련 (/api/internal/vlm-analysis) ---
-class VlmAnalysisReq(BaseModel):
-    camera_name: str 
-    ev_code_name: str  # 🌟 이 줄 추가! (ex: "FALL_DETECTED")
-    risk_text: str   
-    time: str
