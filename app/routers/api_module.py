@@ -110,7 +110,7 @@ async def receive_vlm_analysis(req: schemas.VlmAnalysisReq,request: Request, bac
     if safety_core:
     	vlm_payload = req.model_dump()
     	
-    	background_tasks.add_task(safety_core.process_vlm_event, vlm_payload)
+    	background_tasks.add_task(safety_core.receive_ai_event, vlm_payload)
     return Response(status_code=status.HTTP_200_OK)
 
 

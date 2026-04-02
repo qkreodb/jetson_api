@@ -2,7 +2,7 @@ import socket
 from contextlib import asynccontextmanager
 from typing import List
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from zeroconf import ServiceInfo
 from zeroconf.asyncio import AsyncZeroconf
 
@@ -73,7 +73,7 @@ aiozc = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """서버 부팅 시 IP 확인, DB 초기화, 룰 엔진 가동, mDNS 등록을 처리합니다."""
-    global aiozc, safety_core
+    global aiozc
     current_ip = get_real_ip()
 
     # 1. DB 초기화 세팅
@@ -81,8 +81,12 @@ async def lifespan(app: FastAPI):
 
     # 🌟 2. 룰 엔진(안전 감시 모듈) 백그라운드 가동!
     trans_module = MockTransmission()
-    safety_core = SafetyDetectionModule(db_module, trans_module)
-    safety_core.update_and_get_subscriptions()  # DB에서 감시할 센서 목록 빨아오기
+    
+    app.state.safety_core = SafetyDetectionModule(db_module, trans_module)
+    
+    print("---------------success safety_core------------------")
+    
+    app.state.safety_core.update_and_get_subscriptions()  # DB에서 감시할 센서 목록 빨아오기
     print("🧠 [룰 엔진] 백그라운드 안전 감시 시스템 가동 완료!")
 
     # 3. mDNS 서비스 등록 (스마트폰 앱 자동 감지용)
@@ -113,6 +117,8 @@ app = FastAPI(
     version="4.0.0",
     lifespan=lifespan  # <-- 위에서 정의한 lifespan을 FastAPI에 장착!
 )
+
+
 
 # API 라우터 포함
 app.include_router(api_module.router)
