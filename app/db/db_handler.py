@@ -483,4 +483,3 @@ class DatabaseHandler:
                     return cursor.fetchall()
         except Exception as e:
             return []
-~

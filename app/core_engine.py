@@ -85,17 +85,21 @@ class SafetyDetectionModule:
 
     def receive_ai_event(self, payload: dict):
         try:
-            camera_name = payload.get("camera_name")
+            ip_address = payload.get("ip_address")
             ev_code_name = payload.get("ev_code_name")
             risk_text = payload.get("risk_text")
             msg_time = self._parse_iso_time(payload.get("time"))
+            
+            
 
             db_request_payload = {
-                "camera_name": camera_name,
+                "ip_address": ip_address,
                 "ev_code_name": ev_code_name,
                 "message": risk_text,
                 "time": msg_time
             }
+            
+            print(db_request_payload)
 
             db_result = {}
             if self.db:

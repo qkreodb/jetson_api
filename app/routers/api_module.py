@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, HTTPException, Response, status, BackgroundTasks, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Response, status, BackgroundTasks, WebSocket, WebSocketDisconnect, Request
 from pydantic import BaseModel
 
 # 🌟 SQLAlchemy (models, crud, database) 의존성 완전 제거!
@@ -9,7 +9,7 @@ from app.db.db_handler import DatabaseHandler  # 통합된 만능 DB 핸들러
 router = APIRouter(prefix="/api", tags=["API 호출 모듈"])
 
 # DB 모듈 전역 연결
-db_module = DatabaseHandler(host='127.0.0.1', user='root', password='your_password', db_name='safety_system')
+db_module = DatabaseHandler(host='127.0.0.1', user='root', password='ekthf123', db_name='ds_db')
 
 
 class AppCameraReq(BaseModel):
@@ -100,8 +100,17 @@ def get_sensors():
 
 
 @router.post("/internal/vlm-analysis", summary="위험 감지 데이터 안전 감지 모듈로 전달")
-async def receive_vlm_analysis(req: schemas.VlmAnalysisReq, background_tasks: BackgroundTasks):
-    print(f"📡 [API 모듈] VLM 데이터 수신 및 내부 전달: {req.camera_name}")
+async def receive_vlm_analysis(req: schemas.VlmAnalysisReq,request: Request, background_tasks: BackgroundTasks):
+    print(f"📡 [API 모듈] VLM 데이터 수신 및 내부 전달: {req.ip_address}")
+    
+    print("-------safety-------")
+    safety_core = request.app.state.safety_core
+    
+    print("-------safety done-------")
+    if safety_core:
+    	vlm_payload = req.model_dump()
+    	
+    	background_tasks.add_task(safety_core.process_vlm_event, vlm_payload)
     return Response(status_code=status.HTTP_200_OK)
 
 

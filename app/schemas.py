@@ -46,7 +46,8 @@ class CameraInfoReq(BaseModel):
 
 # --- 4. VLM AI 모듈 통신 관련 (/api/internal/vlm-analysis) ---
 class VlmAnalysisReq(BaseModel):
-    camera_name: str # 예: "cam-01"
+    ip_address: str # 예: "cam-01"
+    ev_code_name : str
     risk_text: str   # 예: "1구역 cam-01에서 낙상 위험이 감지되었습니다."
     time: str        
 

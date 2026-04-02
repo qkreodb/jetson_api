@@ -8,12 +8,12 @@ from zeroconf.asyncio import AsyncZeroconf
 
 # 🌟 DB 핸들러 & 룰 엔진 임포트
 from app.db.db_handler import DatabaseHandler
-from core_engine import SafetyDetectionModule  # 뇌(룰 엔진) 출근!
+from app.core_engine import SafetyDetectionModule  # 뇌(룰 엔진) 출근!
 from app.routers import api_module
 from app.routers.api_module import manager
 
 # 🌟 전역 DB 핸들러 인스턴스 생성 (비밀번호 꼭 본인 걸로 수정하세요!)
-db_module = DatabaseHandler(host='127.0.0.1', user='root', password='ekthf12', db_name='ds_db')
+db_module = DatabaseHandler(host='127.0.0.1', user='root', password='ekthf123', db_name='ds_db')
 
 # 🌟 전역 룰 엔진 인스턴스 공간
 safety_core = None
