@@ -111,61 +111,62 @@ class DatabaseHandler:
             logging.error(f"DB 이벤트 로깅 실패: {e}")
             return {"event_id": int(datetime.now().timestamp() * 1000)}
 
-    # ==========================================
-    # 4. AI 카메라 이벤트 처리 (코어 엔진 -> DB)
-    # ==========================================
+            # ==========================================
+            # 4. AI 카메라 이벤트 처리 (코어 엔진 -> DB)
+            # ==========================================
     def process_ai_event(self, req_payload):
-        """
-        카메라 위험 이벤트를 저장하고, 카메라 구역에 있는 밴드의 sen_name과 event_id를 찾아 반환
-        """
-        camera_name = req_payload['camera_name']
-        ev_code_name = req_payload['ev_code_name']
-        mysql_time = self._parse_to_mysql_time(req_payload['time'])
+                """
+                카메라 위험 이벤트를 저장하고, 해당 카메라 본인의 품명(sen_name)을 찾아 반환
+                (관리자 앱으로 직통 전파용)
+                """
+                ip_address = req_payload['ip_address']
+                ev_code_name = req_payload['ev_code_name']
+                mysql_time = self._parse_to_mysql_time(req_payload['time'])
 
-        try:
-            with self._get_connection() as conn:
-                with conn.cursor() as cursor:
-                    # 1. 카메라 ID를 통해 연동된 밴드(sen_id, sen_name) 찾기
-                    find_sensor_query = """
-                        SELECT s.sen_id, s.sen_name
-                        FROM sensor s
-                        JOIN camera_info c ON s.sen_id = c.sen_id
-                        WHERE c.camera_id = %s LIMIT 1
-                    """
-                    cursor.execute(find_sensor_query, (camera_name,))
-                    sensor_info = cursor.fetchone()
+                try:
+                    with self._get_connection() as conn:
+                        with conn.cursor() as cursor:
+                            # 1. 이벤트 코드명으로 ID 찾기
+                            find_code_query = "SELECT ev_code_id FROM event_code WHERE ev_code_name = %s LIMIT 1"
+                            cursor.execute(find_code_query, (ev_code_name,))
+                            code_info = cursor.fetchone()
+                            ev_code_id = code_info['ev_code_id'] if code_info else 0
 
-                    target_sen_id = sensor_info['sen_id'] if sensor_info else None
-                    target_sen_name = sensor_info['sen_name'] if sensor_info else "unknown_band"
+                            # 2. 🌟 ip_address로 '카메라 본인'의 정보(ID, 품명) 찾기!
+                            find_camera_query = """
+                                    SELECT c.sen_id, s.sen_name 
+                                    FROM camera_info c
+                                    JOIN sensor s ON c.sen_id = s.sen_id
+                                    WHERE c.ip_address = %s
+                                    LIMIT 1
+                                """
+                            cursor.execute(find_camera_query, (ip_address,))
+                            camera_info = cursor.fetchone()
 
-                    # 2. 이벤트 코드명으로 ID 찾기
-                    find_code_query = "SELECT ev_code_id FROM event_code WHERE ev_code_name = %s LIMIT 1"
-                    cursor.execute(find_code_query, (ev_code_name,))
-                    code_info = cursor.fetchone()
-                    ev_code_id = code_info['ev_code_id'] if code_info else 0
+                            # 만약 못 찾으면 예외 처리
+                            target_sen_id = camera_info['sen_id'] if camera_info else None
+                            camera_name = camera_info['sen_name'] if camera_info else "unknown_camera"
 
-                    # 3. event 테이블에 INSERT
-                    insert_query = """
-                        INSERT INTO event (ev_code_id, sen_id, message, detected_value, time)
-                        VALUES (%s, %s, %s, 'AI_VISION_DETECTION', %s)
-                    """
-                    cursor.execute(insert_query, (
-                        ev_code_id,
-                        target_sen_id,
-                        req_payload['message'],
-                        mysql_time
-                    ))
+                            # 3. event 테이블에 INSERT (사건 주체를 '카메라'로 기록!)
+                            insert_query = """
+                                    INSERT INTO event (ev_code_id, sen_id, message, detected_value, time)
+                                    VALUES (%s, %s, %s, 'AI_VISION_DETECTION', %s)
+                                """
+                            cursor.execute(insert_query, (
+                                ev_code_id,
+                                target_sen_id,
+                                req_payload['message'],
+                                mysql_time
+                            ))
 
-                    event_id = cursor.lastrowid
-
-                    return {
-                        "event_id": event_id,
-                        "sen_name": target_sen_name
-                    }
-        except Exception as e:
-            logging.error(f"DB AI 이벤트 처리 실패: {e}")
-            return {"event_id": int(datetime.now().timestamp() * 1000), "sen_name": "unknown_band"}
-
+                            # 🌟 카메라 품명을 코어 엔진으로 반환
+                            return {
+                                "event_id": cursor.lastrowid,
+                                "camera_name": camera_name
+                            }
+                except Exception as e:
+                    logging.error(f"DB AI 이벤트 처리 실패: {e}")
+                    return {"event_id": int(datetime.now().timestamp() * 1000), "camera_name": "unknown_camera"}
     # ==========================================
     # 5. 센서 등록 (API 모듈 -> DB -> 코어 엔진 갱신)
     # ==========================================
@@ -483,3 +484,4 @@ class DatabaseHandler:
                     return cursor.fetchall()
         except Exception as e:
             return []
+

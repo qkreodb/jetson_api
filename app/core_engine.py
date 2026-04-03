@@ -17,9 +17,11 @@ TIMEOUT_RESET_SEC = 600.0
 
 EVENT_CODE_MAP = {
     "LAW_REST": 1,          # 법정 휴식
-    "EMERGENCY_REST": 2,    # 열 스트레스 위험
-    "FALL_DETECTED": 3,     # 낙상 감지
-    "FIRE_DETECTED": 4      # 화재 감지
+    "EMERGENCY_REST": 3,    # 열 스트레스 위험
+    "FALL_DETECTED": 4,     # 낙상 감지
+    "FIRE_DETECTED": 5,      # 화재 감지
+    "SMOKE_DETECTED" : 6,   #yeongi gam zi
+    "RISK_DETECTED" : 7    #risk gam zi
 }
 
 STATE_REST_START = "LAW_REST"
@@ -87,10 +89,8 @@ class SafetyDetectionModule:
         try:
             ip_address = payload.get("ip_address")
             ev_code_name = payload.get("ev_code_name")
-            risk_text = payload.get("risk_text")
+            risk_text = payload.get("risk_text", payload.get("message"))
             msg_time = self._parse_iso_time(payload.get("time"))
-            
-            
 
             db_request_payload = {
                 "ip_address": ip_address,
@@ -98,21 +98,21 @@ class SafetyDetectionModule:
                 "message": risk_text,
                 "time": msg_time
             }
-            
-            print(db_request_payload)
 
             db_result = {}
             if self.db:
+                # 🌟 이제 단일 딕셔너리로 카메라 정보를 돌려받음!
                 db_result = self.db.process_ai_event(db_request_payload)
 
             event_id = db_result.get("event_id", 0)
-            sen_name = db_result.get("sen_name", "unknown_band")
+            camera_name = db_result.get("camera_name", "unknown_camera")  # 🌟 카메라 품명
 
+            # 🌟 관리자 스마트폰 앱으로 직통 전파!
             api_payload = {
                 "event_id": event_id,
-                "target_topic": f"sensor/{sen_name}/control",
+                "target_topic": f"app/{camera_name}/alerts",  # 👈 관리자 공통 구독 토픽
                 "type": "app_alert",
-                "alert": True,
+                "alert": True,  # 어떤 카메라에서 발생했는지 전달
                 "message": risk_text,
                 "color": "red",
                 "vibration": True,
@@ -124,7 +124,7 @@ class SafetyDetectionModule:
             if self.transmission:
                 self.transmission.send_push_notification(api_payload)
 
-            logging.info(f"🚨 [AI 이벤트 처리] {ev_code_name} 감지 -> app_alert 전송 (Target: {sen_name})")
+            logging.info(f"🚨 [관리자 호출] {ev_code_name} 발생! -> 앱 알람 전송 (발생지: {camera_name})")
 
         except Exception as e:
             logging.error(f"AI 이벤트 처리 오류: {e}")
@@ -279,3 +279,4 @@ class SafetyDetectionModule:
         tw = t1 + t2 - t3 + t4 - 4.686035
         hi = -0.2442 + (0.55399 * tw) + (0.45535 * ta) - (0.0022 * tw ** 2) + (0.00278 * tw * ta) + 3.0
         return round(hi, 2)
+
