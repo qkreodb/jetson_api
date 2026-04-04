@@ -70,6 +70,12 @@ class SafetyDetectionModule:
         try:
             sen_name = payload.get("sen_name")
             msg_time = self._parse_iso_time(payload.get("time"))
+            
+            if self.transmission:
+            	if data_type == "TYPE_VITAL" and hasattr(self.transmission, 'send_vital_data'):
+            		self.transmission.send_vital_data(payload)
+            	elif data_type == "TYPE_TH" and hasattr(self.transmission, 'send_th_data'):
+            		self.transmission.send_th_data(payload)
 
             if self.db:
                 self.db.save_raw_data(data_type, copy.deepcopy(payload))

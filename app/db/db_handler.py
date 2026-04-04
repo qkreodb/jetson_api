@@ -478,6 +478,26 @@ class DatabaseHandler:
                     return cursor.fetchall()
         except Exception as e:
             return []
+     
+    def get_web_sensor_th(self):
+    	query = "SELECT * FROM th_trans ORDER BY time DESC LIMIT 1"
+    	try:
+    	    with self._get_connection() as conn:
+    	        with conn.cursor() as cursor:
+    	            cursor.execute(query)
+    	            return cursor.fetchall()
+    	except Exception as e:
+    	    return []
+    def get_web_sensor_hb(self):
+    	query = "SELECT * FROM hb_trans ORDER BY time DESC LIMIT 1"
+    	try:
+    	    with self._get_connection() as conn:
+    	        with conn.cursor() as cursor:
+    	            cursor.execute(query)
+    	            return cursor.fetchall()
+    	except Exception as e:
+    	    return []
+    	
 
     # [추가] 이벤트 조치 사항 업데이트
     def update_event_measures(self, event_id: int, measures: str):

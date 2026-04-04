@@ -8,7 +8,7 @@ from zeroconf.asyncio import AsyncZeroconf
 
 # 🌟 DB 핸들러 & 룰 엔진 임포트
 from app.db.db_handler import DatabaseHandler
-from app.core_engine import SafetyDetectionModule  # 뇌(룰 엔진) 출근!
+from app.core_engine import SafetyDetectionModule
 from app.routers import api_module
 from app.routers.api_module import manager
 from app.sensor_listener import SensorDataCollector
@@ -20,6 +20,10 @@ db_module = DatabaseHandler(host='127.0.0.1', user='root', password='ekthf123', 
 
 # 🌟 전역 룰 엔진 인스턴스 공간
 safety_core = None
+
+# new websocket for management(transmission list)
+active_vital_websocket: List[WebSocket] = []
+active_th_websocket: List[WebSocket] = []
 
 # Real WebSocket
 class RealTransmission:
@@ -34,8 +38,25 @@ class RealTransmission:
 		manager.broadcast(payload),
 		self.loop
 	)
-
-
+	
+	def send_vital_data(self, payload):
+		async def broadcast():
+			
+			for ws in active_vital_websocket:
+				try:
+					await ws.send_json(payload)
+				except Exception:
+					pass
+		asyncio.run_coroutine_threadsafe(broadcast(), self.loop)
+		
+	def send_th_data(self, payload):
+		async def broadcast():
+			for ws in active_th_websocket:
+				try:
+					await ws.send_json(payload)
+				except Exception:
+					pass
+		asyncio.run_coroutine_threadsafe(broadcast(), self.loop)
 
 def get_real_ip():
     """폐쇄망에서도 현재 할당된 진짜 로컬 IP를 찾아옵니다."""
@@ -95,8 +116,6 @@ async def lifespan(app: FastAPI):
     
     app.state.safety_core = SafetyDetectionModule(db_module, trans_module)
     
-    print("---------------success safety_core------------------")
-    
     app.state.safety_core.update_and_get_subscriptions()  # DB에서 감시할 센서 목록 빨아오기
     print("🧠 [룰 엔진] 백그라운드 안전 감시 시스템 가동 완료!")
 
@@ -155,6 +174,27 @@ async def websocket_alerts(websocket: WebSocket):
         manager.disconnect(websocket)
         print("🔌 [웹소켓] 기기 연결 종료")
 
+
+@app.websocket("/ws/vital")
+async def websocket_vital(websocket: WebSocket):
+	await websocket.accept()
+	active_vital_websocket.append(websocket)
+	try:
+		while True:
+			await websocket.receive_text()
+	except WebSocketDisconnect:
+		active_vital_websocket.remove(websocket)
+		
+@app.websocket("/ws/th")
+async def websocket_th(websocket:WebSocket):
+	await websocket.accept()
+	active_th_websocket.append(websocket)
+	try:
+		while True:
+			await websocket.receive_text()
+	except WebSocketDisconnect:
+		active_th_websocket.remove(websocket)
+		
 
 @app.get("/")
 def root():

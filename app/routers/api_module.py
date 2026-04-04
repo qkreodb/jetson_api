@@ -104,15 +104,21 @@ def get_sensors():
     # DictCursor를 쓰기 때문에 바로 json 변환 가능
     return {"status": "success", "data": sensor_list}
 
-
+@router.get("/web/sensors/th", summary="th sensor")
+def get_sensors():
+    sensor_list = db_module.get_web_sensor_th()
+    return {"status": "success", "data": sensor_list}
+@router.get("/web/sensors/hb", summary="hb sensor")
+def get_sensors():
+    sensor_list = db_module.get_web_sensor_hb()
+    return {"status": "success", "data": sensor_list}
+    
 @router.post("/internal/vlm-analysis", summary="위험 감지 데이터 안전 감지 모듈로 전달")
 async def receive_vlm_analysis(req: schemas.VlmAnalysisReq,request: Request, background_tasks: BackgroundTasks):
     print(f"📡 [API 모듈] VLM 데이터 수신 및 내부 전달: {req.ip_address}")
     
-    print("-------safety-------")
     safety_core = request.app.state.safety_core
-    
-    print("-------safety done-------")
+   
     if safety_core:
     	vlm_payload = req.model_dump()
     	
@@ -149,6 +155,8 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
+            
+
 
     async def broadcast(self, message: dict):
         for connection in self.active_connections:
