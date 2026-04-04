@@ -11,6 +11,9 @@ from app.db.db_handler import DatabaseHandler
 from app.core_engine import SafetyDetectionModule  # 뇌(룰 엔진) 출근!
 from app.routers import api_module
 from app.routers.api_module import manager
+from app.sensor_listener import SensorDataCollector
+
+import asyncio
 
 # 🌟 전역 DB 핸들러 인스턴스 생성 (비밀번호 꼭 본인 걸로 수정하세요!)
 db_module = DatabaseHandler(host='127.0.0.1', user='root', password='ekthf123', db_name='ds_db')
@@ -18,15 +21,20 @@ db_module = DatabaseHandler(host='127.0.0.1', user='root', password='ekthf123', 
 # 🌟 전역 룰 엔진 인스턴스 공간
 safety_core = None
 
+# Real WebSocket
+class RealTransmission:
+	def __init__(self, loop):
+		self.loop = loop
+	
+	def send_push_notification(self, payload):
+		
+		print(f"[Real Transmission] alarm to app: {payload.get('message')}")
+		
+		asyncio.run_coroutine_threadsafe(
+		manager.broadcast(payload),
+		self.loop
+	)
 
-# 알람 발송용 모의 모듈 (나중에는 실제 앱 푸시나 웹소켓 전송 로직으로 변경 가능)
-class MockTransmission:
-    def send_push_notification(self, payload):
-        print("\n" + "💺" * 20)
-        print(f"📡 [알람 발송] {payload['type'].upper()} 발생!")
-        print(f"📍 대상 토픽: {payload['target_topic']}")
-        print(f"📝 메시지: {payload.get('message')}")
-        print("💺" * 20 + "\n")
 
 
 def get_real_ip():
@@ -78,9 +86,12 @@ async def lifespan(app: FastAPI):
 
     # 1. DB 초기화 세팅
     startup_db_init(current_ip)
+    
+    main_loop = asyncio.get_running_loop()
+    trans_module = RealTransmission(main_loop)
 
     # 🌟 2. 룰 엔진(안전 감시 모듈) 백그라운드 가동!
-    trans_module = MockTransmission()
+    # trans_module = MockTransmission()
     
     app.state.safety_core = SafetyDetectionModule(db_module, trans_module)
     
@@ -89,6 +100,9 @@ async def lifespan(app: FastAPI):
     app.state.safety_core.update_and_get_subscriptions()  # DB에서 감시할 센서 목록 빨아오기
     print("🧠 [룰 엔진] 백그라운드 안전 감시 시스템 가동 완료!")
 
+    sensor_collector = SensorDataCollector(app.state.safety_core)
+    sensor_collector.start()
+    
     # 3. mDNS 서비스 등록 (스마트폰 앱 자동 감지용)
     info = ServiceInfo(
         "_jetsonhub._tcp.local.",

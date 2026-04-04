@@ -5,6 +5,8 @@ import copy
 import logging
 from datetime import datetime
 
+from rich import print
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
 # 프로젝트 상수
@@ -106,6 +108,9 @@ class SafetyDetectionModule:
 
             event_id = db_result.get("event_id", 0)
             camera_name = db_result.get("camera_name", "unknown_camera")  # 🌟 카메라 품명
+            camera_loc = db_result.get("camera_loc", "알 수 없는 위치") 
+            # 🌟 원본 시간 가져오기 (앱에서 파싱하기 좋게 원본 문자열 그대로 전송)
+            original_time = payload.get("time") 
 
             # 🌟 관리자 스마트폰 앱으로 직통 전파!
             api_payload = {
@@ -113,6 +118,10 @@ class SafetyDetectionModule:
                 "target_topic": f"app/{camera_name}/alerts",  # 👈 관리자 공통 구독 토픽
                 "type": "app_alert",
                 "alert": True,  # 어떤 카메라에서 발생했는지 전달
+                "camera_name": camera_name,
+                "camera_loc": camera_loc,       # 👈 추가: 카메라 위치 (예: "제1공장")
+                "ev_code_name": ev_code_name,   # 👈 추가: 이벤트 코드 (예: "FALL_DOWN")
+                "event_time": original_time,    # 👈 추가: 발생 시간 (예: "20260403013000")
                 "message": risk_text,
                 "color": "red",
                 "vibration": True,
@@ -161,11 +170,11 @@ class SafetyDetectionModule:
             ws['sum_hi'] += hi
             ws['count_hi'] += 1
 
-            logging.info(f"📊 [법정 휴식 틱] {sen_name} 샘플 수집: {ws['count_hi']}/{LAW_WINDOW_SAMPLES} (현재 합계: {ws['sum_hi']:.1f}, 이번 HI: {hi})")
+            print(f"[법정 휴식 틱] {sen_name} 샘플 수집: {ws['count_hi']}/{LAW_WINDOW_SAMPLES} (HI: {hi})")
 
             if ws['count_hi'] >= LAW_WINDOW_SAMPLES:
                 avg_hi = ws['sum_hi'] / LAW_WINDOW_SAMPLES
-                logging.info(f"🧐 [윈도우 꽉 참!] {sen_name} 평균 HI: {avg_hi:.2f} (기준: {HI_THRESHOLD})")
+                print(f"[리셋] {sen_name} 평균 HI: {avg_hi:.2f} (기준: {HI_THRESHOLD})")
 
                 if avg_hi >= HI_THRESHOLD:
                     trigger_rest = True

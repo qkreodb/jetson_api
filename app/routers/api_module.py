@@ -16,6 +16,12 @@ class AppCameraReq(BaseModel):
     ip_address: str
     camera_id: str
     camera_pw: str
+    
+    
+# 조치 사항 입력용 Pydantic 모델
+class EventMeasuresReq(BaseModel):
+    event_id: int
+    measures: str
 
 
 @router.post("/jetson/register", response_model=schemas.JetsonRegisterRes, summary="젯슨 등록 및 앱 연동")
@@ -112,6 +118,24 @@ async def receive_vlm_analysis(req: schemas.VlmAnalysisReq,request: Request, bac
     	
     	background_tasks.add_task(safety_core.receive_ai_event, vlm_payload)
     return Response(status_code=status.HTTP_200_OK)
+    
+    
+   
+# 1. 조치 사항 기록 API
+@router.post("/event/measures", summary="사건 조치 사항 기록")
+async def post_event_measures(req: EventMeasuresReq):
+    success = db_module.update_event_measures(req.event_id, req.measures)
+    if not success:
+        raise HTTPException(status_code=400, detail="조치 사항 기록에 실패했습니다. ID를 확인하세요.")
+    return {"status": "success", "message": "조치 사항이 성공적으로 기록되었습니다."}
+
+# 2. 사번으로 이름 조회 API
+@router.get("/worker", summary="사번으로 작업자 이름 조회")
+async def get_worker_name(worker_id: str):
+    if not name:
+        raise HTTPException(status_code=404, detail="해당 사번을 가진 작업자가 없습니다.")
+    return {"status": "success", "worker_name": name}
+    
 
 
 class ConnectionManager:
