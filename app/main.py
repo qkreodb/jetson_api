@@ -87,7 +87,7 @@ def startup_db_init(ip: str):
     # DB 핸들러로 젯슨 정보 갱신
     success = db_module.init_jetson_info(jetson_info)
     if success:
-        print(f"✅ [DB] 젯슨 정보 업데이트 완료! IP: {ip}")
+        print(f"[DB] 젯슨 정보 업데이트 완료 | IP: {ip}")
     else:
         print(f"❌ [DB] 젯슨 정보 업데이트 실패!")
 
@@ -117,7 +117,7 @@ async def lifespan(app: FastAPI):
     app.state.safety_core = SafetyDetectionModule(db_module, trans_module)
     
     app.state.safety_core.update_and_get_subscriptions()  # DB에서 감시할 센서 목록 빨아오기
-    print("🧠 [룰 엔진] 백그라운드 안전 감시 시스템 가동 완료!")
+    print("[안전감지모듈] 백그라운드 가동 완료")
 
     sensor_collector = SensorDataCollector(app.state.safety_core)
     sensor_collector.start()
@@ -133,7 +133,7 @@ async def lifespan(app: FastAPI):
 
     aiozc = AsyncZeroconf()
     await aiozc.async_register_service(info)
-    print(f"📢 [mDNS] 젯슨 방송 시작! (IP: {current_ip}, Port: 8000)")
+    print(f"[mDNS] 젯슨 방송 시작 (IP: {current_ip}, Port: 8000)")
 
     yield  # 🟢 서버 가동 중 (API 요청 처리 대기) ...
 
@@ -141,7 +141,7 @@ async def lifespan(app: FastAPI):
     if aiozc:
         await aiozc.async_unregister_service(info)
         await aiozc.async_close()
-        print("🔇 [mDNS] 젯슨 방송 종료 및 서버 종료")
+        print("[mDNS] 젯슨 방송 종료 및 서버 종료")
 
 
 app = FastAPI(
@@ -168,11 +168,11 @@ async def websocket_alerts(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            print(f"📱 [앱 응답]: {data}")
+            print(f"[앱 응답]: {data}")
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-        print("🔌 [웹소켓] 기기 연결 종료")
+        print("[웹소켓] 기기 연결 종료")
 
 
 @app.websocket("/ws/vital")

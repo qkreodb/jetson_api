@@ -15,7 +15,7 @@ class SensorDataCollector:
     def start(self):
         threading.Thread(target=self._vital_listener, daemon=True).start()
         threading.Thread(target=self._th_listener, daemon=True).start()
-        logging.info("🎧 [Sensor_Collector] 내부 센서 수집 모듈 가동 완료! (디버깅 모드)")
+        #logging.info("🎧 [Sensor_Collector] 내부 센서 수집 모듈 가동 완료! (디버깅 모드)")
 
     def _vital_listener(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -32,7 +32,7 @@ class SensorDataCollector:
                 		parsed = json.loads(payload_str[json_start:])
                 		
                 		heart_rate = parsed.get('hr')
-                		print(f"[light][워치] 심박수: {heart_rate}[/light]")
+                		#print(f"[light][워치] 심박수: {heart_rate}[/light]")
                 	except json.JSONDecodeError:
                 		print("JSON parsing failed")
 
@@ -69,7 +69,7 @@ class SensorDataCollector:
                     if not result.isError():
                         temp = result.registers[0] / 10.0
                         humid = result.registers[1] / 10.0
-                        print(f"[light][온습도] 온도: {temp}°C, 습도: {humid}%[/light]")
+                        #print(f"[light][온습도] 온도: {temp}°C, 습도: {humid}%[/light]")
                         
                         payload = {
                             "sen_id": 201,

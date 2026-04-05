@@ -63,7 +63,7 @@ class SafetyDetectionModule:
                 if topic:
                     mqtt_topics.append(topic)
 
-        logging.info(f"📋 코어 엔진 갱신: {len(self.registered_sensors)}개 센서 감시 시작")
+        print(f"등록된 센서: {len(self.registered_sensors)}개")
         return mqtt_topics
 
     def receive_sensor_data(self, data_type, payload: dict):
@@ -139,7 +139,7 @@ class SafetyDetectionModule:
             if self.transmission:
                 self.transmission.send_push_notification(api_payload)
 
-            logging.info(f"🚨 [관리자 호출] {ev_code_name} 발생! -> 앱 알람 전송 (발생지: {camera_name})")
+            logging.info(f"[관리자 호출] {ev_code_name} 발생! -> 앱 알람 전송 (발생지: {camera_name})")
 
         except Exception as e:
             logging.error(f"AI 이벤트 처리 오류: {e}")
