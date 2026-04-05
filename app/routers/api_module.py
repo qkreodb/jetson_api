@@ -138,6 +138,7 @@ async def post_event_measures(req: EventMeasuresReq):
 # 2. 사번으로 이름 조회 API
 @router.get("/worker", summary="사번으로 작업자 이름 조회")
 async def get_worker_name(worker_id: str):
+    name = db_module.get_worker_name_by_id(worker_id)
     if not name:
         raise HTTPException(status_code=404, detail="해당 사번을 가진 작업자가 없습니다.")
     return {"status": "success", "worker_name": name}

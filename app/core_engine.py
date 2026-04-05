@@ -17,6 +17,8 @@ HS_HR_DELTA = 30.0
 TIMEOUT_WORKING_DOWN_SEC = 30.0
 TIMEOUT_RESET_SEC = 600.0
 
+STARTUP_LAW_REST_DELAY_SEC = 40.0
+
 EVENT_CODE_MAP = {
     "LAW_REST": 1,          # 법정 휴식
     "EMERGENCY_REST": 3,    # 열 스트레스 위험
@@ -41,6 +43,8 @@ class SafetyDetectionModule:
         self.g_watch = {}
         self.active_names = set()
         self.registered_sensors = set()
+        
+        self.start_time = time.time()
 
         self.timer_thread = threading.Thread(target=self._internal_timer_loop, daemon=True)
         self.timer_thread.start()
@@ -169,6 +173,9 @@ class SafetyDetectionModule:
             if temp == 0.0 and humid == 0.0: return
 
             hi = self._calc_heat_index(temp, humid)
+            
+            if time.time() - self.start_time < STARTUP_LAW_REST_DELAY_SEC:
+            	return
 
             # ==========================================
             #   규칙 1: 법정 휴식 (로그 추가)
