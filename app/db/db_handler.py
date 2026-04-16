@@ -24,12 +24,15 @@ class DatabaseHandler:
         return pymysql.connect(**self.db_config)
 
     def _parse_to_mysql_time(self, time_val):
-        """ISO 8601 문자열이나 Unix Timestamp를 MySQL DATETIME(YYYY-MM-DD HH:MM:SS) 형식으로 변환"""
         try:
-            if isinstance(time_val, (int, float)):
-                dt = datetime.fromtimestamp(time_val)
+            if isinstance(time_val, datetime):
+                dt = time_val
+            elif isinstance(time_val, (int, float)):
+            	dt = datetime.fromtimestamp(time_val)
+            elif isinstance(time_val, str):
+            	dt = datetime.fromisoformat(time_val)
             else:
-                dt = datetime.fromisoformat(time_val)
+                dt = datetime.now()
             return dt.strftime('%Y-%m-%d %H:%M:%S')
         except:
             return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -160,6 +163,171 @@ class DatabaseHandler:
         except Exception as e:
             logging.error(f"DB AI 이벤트 처리 실패: {e}")
             return {"event_id": 0, "camera_name": "unknown_camera", "camera_loc": "알 수 없음"}
+            
+            
+    # ==========================================
+    # 6. 센서 서비스용 함수 (mDNS / MQTT)
+    # ==========================================
+
+    def register_discovered_sensors(self, jetson_id: int, sensors: list):
+        """
+        앱에서 선택한 발견 센서를 DB에 등록
+        방법 A:
+        - register 시 INSERT
+        - unregister 시 DELETE
+        """
+        query = """
+            INSERT INTO sensor (
+                sensor_id,
+                jetson_id,
+                sensor_type,
+                sen_name,
+                sen_locate,
+                model,
+                mqtt_topic,
+                mdns_hostname,
+                ip_addr,
+                is_online,
+                last_seen_at,
+                registered_at,
+                register_date,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                CURDATE(), NOW(), NOW()
+            )
+        """
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cursor:
+                    for s in sensors:
+                        s_dict = s.model_dump() if hasattr(s, 'model_dump') else s
+
+                        cursor.execute(query, (
+                            s_dict.get("sensor_id"),
+                            jetson_id,
+                            s_dict.get("sensor_type"),
+                            s_dict.get("sen_name") or s_dict.get("sensor_name"),
+                            s_dict.get("sen_locate") or s_dict.get("sensor_location"),
+                            s_dict.get("model"),
+                            s_dict.get("mqtt_topic") or s_dict.get("topic_base"),
+                            s_dict.get("mdns_hostname"),
+                            s_dict.get("ip_addr"),
+                            True,
+                            self._parse_to_mysql_time(s_dict.get("last_seen_at")),
+                            self._parse_to_mysql_time(datetime.now())
+                        ))
+            return True
+        except Exception as e:
+            logging.error(f"register_discovered_sensors 실패: {e}")
+            return False
+
+    def unregister_sensor_by_sensor_id(self, sensor_id: str):
+        """
+        등록 해제 시 sensor 테이블에서 삭제
+        """
+        query = "DELETE FROM sensor WHERE sensor_id = %s"
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cursor:
+                    affected = cursor.execute(query, (sensor_id,))
+            return affected > 0
+        except Exception as e:
+            logging.error(f"unregister_sensor_by_sensor_id 실패: {e}")
+            return False
+
+    def is_registered_sensor(self, sensor_id: str):
+        """
+        현재 DB에 등록된 센서인지 확인
+        """
+        query = "SELECT 1 FROM sensor WHERE sensor_id = %s LIMIT 1"
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (sensor_id,))
+                    return cursor.fetchone() is not None
+        except Exception as e:
+            logging.error(f"is_registered_sensor 실패: {e}")
+            return False
+
+    def update_sensor_online(self, sensor_id: str, is_online: bool, last_seen_at=None):
+        """
+        등록된 센서의 online/offline 상태 및 마지막 확인 시각 갱신
+        """
+        query = """
+            UPDATE sensor
+            SET is_online = %s,
+                last_seen_at = %s,
+                updated_at = NOW()
+            WHERE sensor_id = %s
+        """
+        try:
+            mysql_time = self._parse_to_mysql_time(last_seen_at)
+            with self._get_connection() as conn:
+                with conn.cursor() as cursor:
+                    affected = cursor.execute(query, (is_online, mysql_time, sensor_id))
+            return affected > 0
+        except Exception as e:
+            logging.error(f"update_sensor_online 실패: {e}")
+            return False
+
+    def save_sensor_telemetry(self, sensor_id: str, temperature: float, humidity: float, ts=None):
+        """
+        등록된 온습도 센서의 telemetry 저장
+        """
+        query = """
+            INSERT INTO th_trans (sen_id, temp, humid, time)
+            VALUES (
+                (SELECT sen_id FROM sensor WHERE sensor_id = %s LIMIT 1),
+                %s, %s, %s
+            )
+        """
+        try:
+            mysql_time = self._parse_to_mysql_time(ts)
+            with self._get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (sensor_id, temperature, humidity, mysql_time))
+            return True
+        except Exception as e:
+            logging.error(f"save_sensor_telemetry 실패: {e}")
+            return False
+
+    def get_registered_sensor_rows(self):
+        """
+        DB에 등록된 센서 목록 조회
+        방법 A에서는 sensor 테이블 전체가 곧 '등록된 센서'
+        """
+        query = """
+            SELECT
+                sen_id,
+                sensor_id,
+                sensor_type,
+                sen_name,
+                sen_locate,
+                model,
+                mqtt_topic,
+                mdns_hostname,
+                ip_addr,
+                is_online,
+                last_seen_at,
+                registered_at,
+                register_date,
+                created_at,
+                updated_at
+            FROM sensor
+            ORDER BY updated_at DESC
+        """
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(query)
+                    return cursor.fetchall()
+        except Exception as e:
+            logging.error(f"get_registered_sensor_rows 실패: {e}")
+            return []
+            
             
     # ==========================================
     # 5. 센서 등록 (API 모듈 -> DB -> 코어 엔진 갱신)

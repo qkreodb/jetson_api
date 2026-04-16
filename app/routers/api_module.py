@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import APIRouter, HTTPException, Response, status, BackgroundTasks, WebSocket, WebSocketDisconnect, Request
 from pydantic import BaseModel
+from datetime import datetime
 
 # 🌟 SQLAlchemy (models, crud, database) 의존성 완전 제거!
 from app import schemas
@@ -23,6 +24,8 @@ class EventMeasuresReq(BaseModel):
     event_id: int
     measures: str
 
+class SensorUnregisterReq(BaseModel):
+	sensor_id: str
 
 @router.post("/jetson/register", response_model=schemas.JetsonRegisterRes, summary="젯슨 등록 및 앱 연동")
 def register_jetson(req: schemas.JetsonRegisterReq):
@@ -40,27 +43,109 @@ def register_jetson(req: schemas.JetsonRegisterReq):
     )
 
 
-@router.get("/sensors/discovered", response_model=schemas.DiscoveredSensorsRes, summary="mDNS 감지 센서 목록 조회")
-def get_discovered_sensors():
-    dummy_sensors = [
-        schemas.SensorItem(sen_name="손목밴드1", sensor_type="heart_rate", mqtt_topic="sensor/band-01/heart_rate",
-                           sen_locate="locate1"),
-        schemas.SensorItem(sen_name="온습도계1", sensor_type="temperature_humidity", mqtt_topic="sensor/temp-01/data",
-                           sen_locate="locate1")
-    ]
-    return schemas.DiscoveredSensorsRes(jetson_id="jetson-01", discovered_sensors=dummy_sensors)
+@router.get("/sensors/discovered", summary="mDNS 감지 센서 목록 조회")
+def get_discovered_sensors(request: Request):
+	try:
+		sensors = request.app.state.mdns_sensor_service.get_discovered_sensors()
+		return {
+			"status" : "success",
+			"data": sensors
+		}
+	except Exception as e:
+		raise HTTPException(status_code = 500, detail = f"failed: {e}")
+	
+@router.get("/sensors", summary="등록된 센서 목록 조회")
+def get_sensors():
+	try:
+		sensor_list = db_module.get_registered_sensor_rows()
+		return{
+			"status" : "success",
+			"data" : sensor_list
+		}
+	except Exception as e:
+		raise HTTPException(status_code = 500, detail=f"failed: {e}")
 
 
 @router.post("/sensors/register", summary="센서 다중 등록")
-def register_sensors(req: schemas.SensorRegisterReq):
+def register_sensors(req: schemas.SensorRegisterReq, request: Request):
+    """
+    방법 A
+    - 앱이 선택한 발견 센서를 DB에 INSERT
+    - MQTT register 명령 전송
+    
+    """
+    
+    print("[REGISTER] req =", req)
+    print("[REGISTER] selected_sensors =", req.selected_sensors)
+    print("[REGISTER] jetson_id =", req.jetson_id)
+    
     try:
-        j_id = int(req.jetson_id.split("-")[1])
-    except:
-        j_id = 1
+        jetson_id = int(req.jetson_id.split("-")[1])
+    except Exception:
+        jetson_id = 1
 
-        # crud.register_multiple_sensors 대체
-    db_module.register_multiple_sensors(j_id, req.selected_sensors)
-    return {"status": "success", "message": "Sensors registered successfully"}
+    if not req.selected_sensors:
+        raise HTTPException(status_code=400, detail="선택된 센서가 없습니다.")
+
+    selected = []
+    for s in req.selected_sensors:
+        s_dict = s.model_dump() if hasattr(s, "model_dump") else s
+
+        sensor_id = s_dict.get("sensor_id")
+        if not sensor_id:
+            raise HTTPException(status_code=400, detail="sensor_id가 없는 센서가 포함되어 있습니다.")
+            print(req)
+
+        selected.append({
+            "sensor_id": sensor_id,
+            "sensor_type": s_dict.get("sensor_type"),
+            "sen_name": s_dict.get("sen_name"),
+            "sen_locate": s_dict.get("sen_locate"),
+            "model": s_dict.get("model", "unknown"),
+            "mqtt_topic": s_dict.get("mqtt_topic"),
+            "mdns_hostname": s_dict.get("mdns_hostname"),
+            "ip_addr": s_dict.get("ip_addr"),
+            "last_seen_at": s_dict.get("last_seen_at") or datetime.now()
+        })
+
+    ok = db_module.register_discovered_sensors(jetson_id, selected)
+    if not ok:
+        raise HTTPException(status_code=500, detail="센서 DB 등록 실패")
+
+    mqtt_service = request.app.state.mqtt_sensor_service
+
+    for sensor in selected:
+        mqtt_service.publish_register(
+            sensor_id=sensor["sensor_id"],
+            site_id=f"jetson-{jetson_id:02d}",
+            interval_ms=5000
+        )
+
+    return {
+        "status": "success",
+        "message": "Sensors registered successfully"
+    }
+
+
+@router.post("/sensors/unregister", summary="센서 등록 해제")
+def unregister_sensor(req: SensorUnregisterReq, request: Request):
+    """
+    방법 A
+    - MQTT unregister 전송
+    - DB에서 sensor row 삭제
+    """
+    mqtt_service = request.app.state.mqtt_sensor_service
+
+    mqtt_service.publish_unregister(req.sensor_id)
+
+    ok = db_module.unregister_sensor_by_sensor_id(req.sensor_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="해당 sensor_id를 가진 등록 센서가 없습니다.")
+
+    return {
+        "status": "success",
+        "message": "Sensor unregistered successfully"
+    }
 
 
 @router.post("/cameras/register", summary="카메라 등록 및 VLM 중계")
@@ -98,11 +183,7 @@ def get_cameras():
     return {"status": "success", "data": result_data}
 
 
-@router.get("/sensors", summary="등록된 일반 센서 목록 조회")
-def get_sensors():
-    sensor_list = db_module.get_sensor_list()
-    # DictCursor를 쓰기 때문에 바로 json 변환 가능
-    return {"status": "success", "data": sensor_list}
+
 
 @router.get("/web/sensors/th", summary="th sensor")
 def get_sensors():

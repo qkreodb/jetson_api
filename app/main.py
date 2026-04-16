@@ -12,6 +12,8 @@ from app.core_engine import SafetyDetectionModule
 from app.routers import api_module
 from app.routers.api_module import manager
 from app.sensor_listener import SensorDataCollector
+from app.services.mdns_sensor_service import MdnsSensorService
+from app.services.mqtt_sensor_service import MqttSensorService
 
 import asyncio
 
@@ -122,6 +124,17 @@ async def lifespan(app: FastAPI):
     sensor_collector = SensorDataCollector(app.state.safety_core)
     sensor_collector.start()
     
+    app.state.mdns_sensor_service = MdnsSensorService(db_module)
+    await app.state.mdns_sensor_service.start()
+    
+    app.state.mqtt_sensor_service = MqttSensorService(
+    	db_handler = db_module,
+    	broker_host = "127.0.0.1",
+    	broker_port = 1883
+    )
+    app.state.mqtt_sensor_service.start()
+    
+    
     # 3. mDNS 서비스 등록 (스마트폰 앱 자동 감지용)
     info = ServiceInfo(
         "_jetsonhub._tcp.local.",
@@ -136,6 +149,12 @@ async def lifespan(app: FastAPI):
     print(f"[mDNS] 젯슨 방송 시작 (IP: {current_ip}, Port: 8000)")
 
     yield  # 🟢 서버 가동 중 (API 요청 처리 대기) ...
+    
+    if hasattr(app.state, "mdns_sensor_service"):
+    	await app.state.mdns_sensor_service.stop()
+    	
+    if hasattr(app.state, "mqtt_sensor_service"):
+    	app.state.mqtt_sensor_service.stop()
 
     # [SHUTDOWN] 종료 시 처리
     if aiozc:
@@ -195,6 +214,18 @@ async def websocket_th(websocket:WebSocket):
 	except WebSocketDisconnect:
 		active_th_websocket.remove(websocket)
 		
+@app.websocket("/reg/band")
+async def websocket_band(websocket:WebSocket):
+	await websocket.accpet()
+	print("------------find band-----------")
+	
+	try:
+		while True:
+			data = await websocket.receive_text()
+			print(f"[band log]: {data}")
+	except WebSocketDisconnect:
+		print("gggggggggggg")
+
 
 @app.get("/")
 def root():
