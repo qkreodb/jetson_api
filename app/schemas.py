@@ -15,10 +15,16 @@ class JetsonRegisterRes(BaseModel):
 
 # --- 2. 센서 조회 및 등록 관련 (/api/sensors/...) ---
 class SensorItem(BaseModel):
+    sensor_id: str
     sen_name: str
     sensor_type: str
     mqtt_topic: str
     sen_locate: str
+    model: Optional[str] = None
+    mdns_hostname: Optional[str] = None
+    ip_addr: Optional[str] = None
+    is_online: Optional[bool] = None
+    last_seen_at: Optional[str] = None
 
 class DiscoveredSensorsRes(BaseModel):
     jetson_id: str
