@@ -14,6 +14,7 @@ class JetsonRegisterRes(BaseModel):
     ws_url: str             # "ws://192.168.0.10:8000/ws/alerts"
 
 # --- 2. 센서 조회 및 등록 관련 (/api/sensors/...) ---
+# DY
 class SensorItem(BaseModel):
     sensor_id: str
     sen_name: str
@@ -25,6 +26,8 @@ class SensorItem(BaseModel):
     ip_addr: Optional[str] = None
     is_online: Optional[bool] = None
     last_seen_at: Optional[str] = None
+# DY_db 테이블 확장(칼럼명은 수정 필요함)
+
 
 class DiscoveredSensorsRes(BaseModel):
     jetson_id: str

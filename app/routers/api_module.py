@@ -43,6 +43,7 @@ def register_jetson(req: schemas.JetsonRegisterReq):
     )
 
 
+# DY
 @router.get("/sensors/discovered", summary="mDNS 감지 센서 목록 조회")
 def get_discovered_sensors(request: Request):
 	try:
@@ -74,11 +75,6 @@ def register_sensors(req: schemas.SensorRegisterReq, request: Request):
     - MQTT register 명령 전송
     
     """
-    
-    print("[REGISTER] req =", req)
-    print("[REGISTER] selected_sensors =", req.selected_sensors)
-    print("[REGISTER] jetson_id =", req.jetson_id)
-    
     try:
         jetson_id = int(req.jetson_id.split("-")[1])
     except Exception:
@@ -146,6 +142,8 @@ def unregister_sensor(req: SensorUnregisterReq, request: Request):
         "status": "success",
         "message": "Sensor unregistered successfully"
     }
+    
+# DY_db 구조 변경에 따른 api 수정 및 센서 등록 해제 api 추가
 
 
 @router.post("/cameras/register", summary="카메라 등록 및 VLM 중계")

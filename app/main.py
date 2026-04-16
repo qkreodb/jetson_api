@@ -124,6 +124,8 @@ async def lifespan(app: FastAPI):
     sensor_collector = SensorDataCollector(app.state.safety_core)
     sensor_collector.start()
     
+    
+    # DY
     app.state.mdns_sensor_service = MdnsSensorService(db_module)
     await app.state.mdns_sensor_service.start()
     
@@ -133,6 +135,7 @@ async def lifespan(app: FastAPI):
     	broker_port = 1883
     )
     app.state.mqtt_sensor_service.start()
+    # DY_mDNS, mqtt -> lifespan
     
     
     # 3. mDNS 서비스 등록 (스마트폰 앱 자동 감지용)
