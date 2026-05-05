@@ -18,7 +18,7 @@ from app.services.mqtt_sensor_service import MqttSensorService
 import asyncio
 
 # 🌟 전역 DB 핸들러 인스턴스 생성 (비밀번호 꼭 본인 걸로 수정하세요!)
-db_module = DatabaseHandler(host='127.0.0.1', user='root', password='ekthf123', db_name='ds_db')
+db_module = DatabaseHandler(host='127.0.0.1', user='myuser', password='mypassword', db_name='mydb')
 
 # 🌟 전역 룰 엔진 인스턴스 공간
 safety_core = None

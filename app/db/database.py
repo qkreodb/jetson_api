@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # 형식: mysql+pymysql://유저이름:비밀번호@IP주소:포트/데이터베이스이름
-DATABASE_URL = "mysql+pymysql://root:ekthf123@127.0.0.1:3306/ds_db"
+DATABASE_URL = "mysql+pymysql://myuser:mypassword@127.0.0.1:3306/mydb"
 
 engine = create_engine(DATABASE_URL)
 

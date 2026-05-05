@@ -10,7 +10,7 @@ from app.db.db_handler import DatabaseHandler  # 통합된 만능 DB 핸들러
 router = APIRouter(prefix="/api", tags=["API 호출 모듈"])
 
 # DB 모듈 전역 연결
-db_module = DatabaseHandler(host='127.0.0.1', user='root', password='ekthf123', db_name='ds_db')
+db_module = DatabaseHandler(host='127.0.0.1', user='myuser', password='mypassword', db_name='mydb')
 
 
 class AppCameraReq(BaseModel):

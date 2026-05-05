@@ -6,7 +6,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(me
 
 
 class DatabaseHandler:
-    def __init__(self, host='127.0.0.1', user='root', password='ekthf123', db_name='ds_db', port=3306):
+    def __init__(self, host='127.0.0.1', user='myuser', password='mypassword', db_name='mydb', port=3306):
         """MariaDB 연결 초기화"""
         self.db_config = {
             'host': host,
@@ -221,7 +221,7 @@ class DatabaseHandler:
                         ))
             return True
         except Exception as e:
-            logging.error(f"register_discovered_sensors 실패: {e}")
+            logging.exception("register_discovered_sensors 실패")
             return False
 
     def unregister_sensor_by_sensor_id(self, sensor_id: str):
@@ -509,7 +509,7 @@ class DatabaseHandler:
                     if not existing:
                         # 없으면 새로 삽입
                         insert_query = """
-                            INSERT INTO jetson (jetson_wp, jetson_loc, situ_state, ip_addr, port)
+                            INSERT INTO jetson (jetson_wp, jetson_loc, jetson_status, ip_addr, port)
                             VALUES (%s, %s, %s, %s, %s)
                         """
                         cursor.execute(insert_query, (
