@@ -18,7 +18,7 @@ class MdnsSensorService:
     - 앱에서 조회할 발견 목록 제공
     """
 
-    SERVICE_TYPE = "_tempsensor._tcp.local."
+    SERVICE_TYPE = "_onsafe-sensor._tcp.local."
 
     def __init__(self, db_handler):
         self.db_handler = db_handler
@@ -97,13 +97,24 @@ class MdnsSensorService:
                 except Exception:
                     ip_addr = None
 
+            mqtt_base = properties.get("mqtt_base", f"sensors/{sensor_id}")
+
             sensor_info = {
                 "sensor_id": sensor_id,
                 "sensor_type": properties.get("sensor_type", "unknown"),
                 "sen_name": properties.get("sen_name", sensor_id),
                 "sen_locate": properties.get("sen_locate", "default"),
                 "model": properties.get("model", ""),
-                "mqtt_topic": properties.get("mqtt_topic", f"sensors/{sensor_id}"),
+
+                "mqtt_base": mqtt_base,
+                "status_topic": f"{mqtt_base}/status",
+                "telemetry_topic": f"{mqtt_base}/telemetry",
+                "cmd_topic": f"{mqtt_base}/cmd",
+                "alert_topic": f"{mqtt_base}/alert",
+
+                # 기존 DB 컬럼 호환용으로 하나만 필요하면 telemetry_topic을 mqtt_topic에 넣어도 됨
+                "mqtt_topic": f"{mqtt_base}/telemetry",
+
                 "mdns_hostname": info.server.rstrip(".") if info.server else name.rstrip("."),
                 "ip_addr": ip_addr,
                 "is_online": True,
