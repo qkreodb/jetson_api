@@ -66,3 +66,15 @@ class WsAlertPayload(BaseModel):
     event_id: int
     event_code: str  
     message: str
+    
+    
+    
+class FloorMapInfoRes(BaseModel):
+    status: str
+    data: dict
+
+class SensorPositionSaveReq(BaseModel):
+    map_id: int
+    sensor_id: str
+    x_ratio: float
+    y_ratio: float

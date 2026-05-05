@@ -691,3 +691,95 @@ class DatabaseHandler:
         except Exception as e:
             logging.error(f"작업자 이름 조회 실패: {e}")
             return None
+            
+            
+    def get_floor_map_by_jetson_id(self, jetson_id: int):
+        query = """
+            SELECT
+                map_id,
+                jetson_id,
+                map_name,
+                image_base64,
+                image_mime_type,
+                image_width,
+                image_height
+            FROM floor_map
+            WHERE jetson_id = %s
+            LIMIT 1
+        """
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (jetson_id,))
+                    return cursor.fetchone()
+        except Exception as e:
+            logging.error(f"get_floor_map_by_jetson_id 실패: {e}")
+            return None
+
+    def get_sensor_positions_by_map_id(self, map_id: int):
+        query = """
+            SELECT
+                p.position_id,
+                p.map_id,
+                p.sensor_id,
+                p.x_ratio,
+                p.y_ratio,
+                s.sen_name,
+                s.sensor_type,
+                s.sen_locate,
+                s.model,
+                s.is_online
+            FROM sensor_map_position p
+            JOIN sensor s ON p.sensor_id = s.sensor_id
+            WHERE p.map_id = %s
+            ORDER BY s.sen_name
+        """
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (map_id,))
+                    return cursor.fetchall()
+        except Exception as e:
+            logging.error(f"get_sensor_positions_by_map_id 실패: {e}")
+            return []
+
+    def upsert_sensor_position(self, map_id: int, sensor_id: str, x_ratio: float, y_ratio: float):
+        query = """
+            INSERT INTO sensor_map_position (map_id, sensor_id, x_ratio, y_ratio)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                x_ratio = VALUES(x_ratio),
+                y_ratio = VALUES(y_ratio),
+                updated_at = NOW()
+        """
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (map_id, sensor_id, x_ratio, y_ratio))
+            return True
+        except Exception as e:
+            logging.error(f"upsert_sensor_position 실패: {e}")
+            return False
+
+    def get_registered_sensors_by_jetson_id(self, jetson_id: int):
+        query = """
+            SELECT
+                sensor_id,
+                sensor_type,
+                sen_name,
+                sen_locate,
+                model,
+                mqtt_topic,
+                is_online
+            FROM sensor
+            WHERE jetson_id = %s
+            ORDER BY sen_name
+        """
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, (jetson_id,))
+                    return cursor.fetchall()
+        except Exception as e:
+            logging.error(f"get_registered_sensors_by_jetson_id 실패: {e}")
+            return []

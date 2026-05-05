@@ -247,3 +247,56 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+
+
+# 평면도 조회
+@router.get("/maps/{jetson_id}", summary="젯슨 평면도 조회")
+def get_floor_map(jetson_id: int):
+    floor_map = db_module.get_floor_map_by_jetson_id(jetson_id)
+    if not floor_map:
+        raise HTTPException(status_code=404, detail="해당 젯슨의 평면도가 없습니다.")
+
+    return {
+        "status": "success",
+        "data": floor_map
+    }
+
+# 센서 위치 조회
+@router.get("/maps/{map_id}/sensors", summary="평면도 센서 위치 조회")
+def get_map_sensor_positions(map_id: int):
+    positions = db_module.get_sensor_positions_by_map_id(map_id)
+    return {
+        "status": "success",
+        "data": positions
+    }
+    
+# 배치 가능 센서 조회
+@router.get("/maps/{jetson_id}/available-sensors", summary="배치 가능한 등록 센서 조회")
+def get_available_sensors_for_map(jetson_id: int):
+    sensors = db_module.get_registered_sensors_by_jetson_id(jetson_id)
+    return {
+        "status": "success",
+        "data": sensors
+    }
+    
+# 센서 위치 저장
+@router.post("/maps/sensors/position", summary="센서 위치 저장")
+def save_sensor_position(req: schemas.SensorPositionSaveReq):
+    if not (0.0 <= req.x_ratio <= 1.0 and 0.0 <= req.y_ratio <= 1.0):
+        raise HTTPException(status_code=400, detail="좌표는 0.0~1.0 범위의 비율값이어야 합니다.")
+
+    ok = db_module.upsert_sensor_position(
+        map_id=req.map_id,
+        sensor_id=req.sensor_id,
+        x_ratio=req.x_ratio,
+        y_ratio=req.y_ratio
+    )
+
+    if not ok:
+        raise HTTPException(status_code=500, detail="센서 위치 저장 실패")
+
+    return {
+        "status": "success",
+        "message": "센서 위치 저장 완료"
+    }

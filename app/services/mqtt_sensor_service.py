@@ -180,7 +180,7 @@ class MqttSensorService:
 
         print(f"[MQTT Sensor] HR avg: {sensor_id} current={hr:.1f}, avg={avg_hr:.1f}")
 
-        if avg_hr >= 130:
+        if avg_hr >= 72:
             if sensor_id not in self.high_hr_start_times:
                 self.high_hr_start_times[sensor_id] = time.time()
 
@@ -190,7 +190,7 @@ class MqttSensorService:
             if duration >= 5:
                 self.publish_alert(
                     sensor_id=sensor_id,
-                    color="red",
+                    color="yellow",
                     vibration=True,
                     led=True,
                     duration_ms=5000,
